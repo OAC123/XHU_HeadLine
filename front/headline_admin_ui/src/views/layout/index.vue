@@ -6,15 +6,7 @@
     <!-- 左侧侧边栏 -->
     <el-aside width="220px" class="aside">
       <el-scrollbar>
-        <!-- 菜单：图书管理 -->
-        <el-menu :default-active="active" @select="go" class="el-menu-vertical-demo">
-          <el-menu-item index="/book">
-            <el-icon><Message /></el-icon>
-            <span>图书管理</span>
-          </el-menu-item>
-        </el-menu>
-
-        <!-- 如果想把多个菜单合并在同一个 el-menu 中也可以，这里用两个分开是为了示例清晰 -->
+        <!-- 菜单：用户管理 -->
         <el-menu :default-active="active" @select="go" class="el-menu-vertical-demo">
           <el-menu-item index="/user">
             <el-icon><IconMenu /></el-icon>
@@ -58,7 +50,7 @@ import {
 
 // 从 element-plus icons 中引入图标组件
 // Message 用作“图书管理”图标示例，Menu 重命名为 IconMenu 用作“用户管理”图标
-import { Message, Menu as IconMenu } from '@element-plus/icons-vue'
+import { Menu as IconMenu } from '@element-plus/icons-vue'
 
 /*
   获取路由实例与路由状态：

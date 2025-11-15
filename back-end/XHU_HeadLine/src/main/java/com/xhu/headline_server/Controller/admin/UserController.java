@@ -3,36 +3,32 @@ package com.xhu.headline_server.Controller.admin;
 
 import com.xhu.headline_server.entity.User;
 import com.xhu.headline_server.service.UserService;
-import lombok.extern.slf4j.Slf4j;
+import com.xhu.headline_server.utils.AliyunOSSOperator;
+import com.xhu.headline_server.utils.util1;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.*;
 
-/**
- * 用户管理后台接口
- * 接口前缀：/admin/user
- */
 @RestController
 @RequestMapping("/admin/user")
 public class UserController {
-
 
     private static final Logger log = LoggerFactory.getLogger(UserController.class);
 
     @Autowired
     private UserService userService;
 
-
+    @Autowired
+    private AliyunOSSOperator aliyunOSSOperator;
 
     // 增：POST /admin/user/add
-    // java
     @PostMapping("/add")
     public Map<String, Object> addUser(@RequestBody User user) {
         Map<String, Object> res = new HashMap<>();
-        log.info("===> /admin/user/add, request user = {}", user);
         try {
             userService.addUser(user);
             res.put("code", 1);
@@ -46,8 +42,7 @@ public class UserController {
         return res;
     }
 
-
-    // 删：POST /admin/user/delete]
+    // 删：POST /admin/user/delete
     @PostMapping("/delete")
     public Map<String, Object> deleteUser(@RequestBody Map<String, Object> params) {
         Map<String, Object> res = new HashMap<>();
@@ -67,6 +62,7 @@ public class UserController {
                 res.put("message", "用户不存在或删除失败");
             }
         } catch (Exception e) {
+            log.error("deleteUser error", e);
             res.put("code", 0);
             res.put("message", "用户删除异常");
         }
@@ -88,6 +84,7 @@ public class UserController {
             res.put("message", "用户信息已更新");
             res.put("userName", user.getUserName());
         } catch (Exception e) {
+            log.error("updateUser error", e);
             res.put("code", 0);
             res.put("message", "用户更新失败");
         }
@@ -95,7 +92,6 @@ public class UserController {
     }
 
     // 查单个：POST /admin/user/get
-    // 请求体示例：{"id": 1}
     @PostMapping("/get")
     public Map<String, Object> getUser(@RequestBody Map<String, Object> params) {
         Map<String, Object> res = new HashMap<>();
@@ -116,47 +112,76 @@ public class UserController {
                 res.put("user", user);
             }
         } catch (Exception e) {
+            log.error("getUser error", e);
             res.put("code", 0);
             res.put("message", "用户查询异常");
         }
         return res;
     }
 
-    // 查列表（搜索+分页）：POST /admin/user/search
-    // 前端请求示例：
-    // {
-    //   "userName": "张三",
-    //   "page": 1,
-    //   "size": 10
-    // }
-    @PostMapping("/search")
+    // 查列表：POST /admin/user/search
+    // 请求体示例：
+    // { "userName": "张三", "role": "admin", "phone": "188", "page": 1, "size": 10 }
+    @PostMapping("/list")
     public Map<String, Object> searchUsers(@RequestBody Map<String, Object> params) {
         Map<String, Object> res = new HashMap<>();
         try {
             String userName = getStringParam(params, "userName");
+            String role = getStringParam(params, "role");
             String phone = getStringParam(params, "phone");
             int page = getIntParam(params, "page", 1);
             int size = getIntParam(params, "size", 10);
 
-            List<User> list = userService.searchUsers(userName, phone, page, size);
-            long total = userService.countUsers(userName, phone);
+            // 1\. 先查出所有用户
+            List<User> all = userService.getAllUsers();
 
-            Map<String, Object> data = new HashMap<>();
-            data.put("list", list);
-            data.put("total", total);
-            data.put("page", page);
-            data.put("size", size);
+            // 2\. 组装过滤条件：userName 模糊匹配，其它等值匹配
+            Map<String, String> contains = new HashMap<>();
+            contains.put("userName", userName);
+
+            Map<String, String> equals = new HashMap<>();
+            if (!role.isEmpty()) {
+                equals.put("role", role);
+            }
+            if (!phone.isEmpty()) {
+                equals.put("phone", phone);
+            }
+
+            // 3\. 使用 util1 统一做过滤 + 分页，返回 rows / total
+            Map<String, Object> data = util1.filterAndPage(all, contains, equals, page, size);
 
             res.put("code", 1);
             res.put("data", data);
         } catch (Exception e) {
+            log.error("searchUsers error", e);
             res.put("code", 0);
             res.put("message", "用户搜索失败");
         }
         return res;
     }
 
-    // ===== 工具方法（模仿 BookController 的 getStringParam/getIntParam）=====
+    // 上传头像示例：POST /admin/user/uploadImage
+    @PostMapping(value = "/uploadImage", consumes = "multipart/form-data")
+    public Map<String, Object> uploadImage(@RequestParam("image") MultipartFile image) {
+        Map<String, Object> res = new HashMap<>();
+        if (image == null || image.isEmpty()) {
+            res.put("code", 0);
+            res.put("message", "no file uploaded");
+            return res;
+        }
+        try {
+            String imageUrl = aliyunOSSOperator.upload(image.getBytes(), image.getOriginalFilename());
+            res.put("code", 1);
+            res.put("imageUrl", imageUrl);
+        } catch (Exception e) {
+            log.error("uploadImage error", e);
+            res.put("code", 0);
+            res.put("message", "图片上传失败");
+        }
+        return res;
+    }
+
+    // ===== 工具方法 =====
 
     private Long getLongParam(Map<String, Object> params, String key, Long defaultVal) {
         Object v = params == null ? null : params.get(key);

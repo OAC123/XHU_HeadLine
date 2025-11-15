@@ -78,4 +78,12 @@ public class UserServiceImpl implements UserService {
     public long countUsers(String userName, String phone) {
         return 0;
     }
+
+    @Override
+    public List<User> getAllUsers() {
+        // 通过 mapper 查询所有用户
+        List<User> users = userMapper.getAllUsers();
+        // 防止返回 null，统一返回空列表
+        return users != null ? users : List.of();
+    }
 }

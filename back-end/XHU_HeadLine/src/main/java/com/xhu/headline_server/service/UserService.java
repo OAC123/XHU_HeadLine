@@ -18,4 +18,6 @@ public interface UserService {
     List<User> searchUsers(String userName, String phone, int page, int size);
 
     long countUsers(String userName, String phone);
+
+    List<User> getAllUsers();
 }

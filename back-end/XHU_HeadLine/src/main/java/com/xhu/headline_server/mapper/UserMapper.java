@@ -4,7 +4,9 @@ import com.xhu.headline_server.entity.User;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
-@Mapper
+import java.util.List;
+
+ @Mapper
 public interface UserMapper {
 
     /**
@@ -26,4 +28,6 @@ public interface UserMapper {
      * 根据 id 删除用户
      */
     int delUserById(@Param("id") Long id);
+
+    List<User> getAllUsers();
 }

@@ -1,3 +1,4 @@
+// ...existing code...
 <script lang="ts">
 export default { name: 'UserView' }
 </script>
@@ -28,7 +29,7 @@ const formSchemaConfig = [
   { prop: 'phone', label: '手机号', type: 'input', placeholder: '请输入手机号' },
 ]
 
-// 使用通用 curd（和 book 页一致的调用方式）
+// 使用通用 curd.js
 const {
   item,
   searchForm,
@@ -63,21 +64,29 @@ const {
   },
 )
 
-// 别名兼容
+// 直接使用 curd 返回的 item 等
 const user = item
 const searchUserForm = searchForm
 const userList = list
 
+// 默认头像
+const DEFAULT_AVATAR = ''
+
+// 图片加载失败时把图片替换为默认
+const onImageError = (e: Event) => {
+  const img = e.target as HTMLImageElement
+  if (img && DEFAULT_AVATAR) img.src = DEFAULT_AVATAR
+}
 // 清空搜索
 const clear = () => {
-  formSchemaConfig.forEach((f) => {
+  formSchema.forEach((f: any) => {
     searchUserForm[f.prop] = ''
   })
   currentPage.value = 1
   search()
 }
 
-// 删除（借鉴 book 的删除实现）
+// 删除
 const delUser = async (row: unknown) => {
   if (!row) return
   try {
@@ -95,11 +104,10 @@ const delUser = async (row: unknown) => {
   }
 }
 
-// 新增 / 编辑 / 保存 / 取消 映射
+// 新增 / 编辑 / 保存 / 取消
 const addUser = addItem
 const updateUser = updateItem
 const saveUser = async () => {
-  // 简单校验：用户名和密码可按需调整
   const payload = JSON.parse(JSON.stringify(user))
   if (!payload.userName) {
     ElMessage.error('请填写用户名')
@@ -121,11 +129,48 @@ const saveUser = async () => {
   }
 }
 const cancelEdit = cancel
-</script>
 
+// 上传回调与校验（新增）
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
+const beforeUpload = (file: File) => {
+  if (file.size > MAX_FILE_SIZE) {
+    ElMessage.error('上传文件大小不能超过 5 MB')
+    return false
+  }
+  return true
+}
+
+const uploadSuccess = (Response: unknown) => {
+  let data: any = Response
+  if (typeof Response === 'string') {
+    try {
+      data = JSON.parse(Response)
+    } catch (e) {
+      console.error('解析上传响应失败', e)
+      ElMessage.error('上传失败，服务器返回数据格式错误')
+      return
+    }
+  }
+  // 尝试解析常见位置
+  const url = data?.url || data?.data?.url || data?.avatarUrl || data?.data?.avatarUrl || ''
+  if (url) {
+    user.avatarUrl = url
+    ElMessage.success('上传成功')
+  } else {
+    ElMessage.warning('上传完成，但后端未返回图片链接')
+    console.warn('upload response parsed but no url:', data)
+  }
+}
+const uploadError = () => {
+  console.error('上传失败')
+  ElMessage.error('上传失败')
+}
+</script>
+// ...existing code...// ...existing code...
 <template>
   <h2>用户管理</h2>
 
+  <!--搜索栏-->
   <div class="container">
     <el-form :inline="true" :model="searchUserForm" class="inline-form">
       <el-form-item v-for="field in formSchema" :key="field.prop" :label="field.label">
@@ -147,50 +192,130 @@ const cancelEdit = cancel
     </el-form>
   </div>
 
+  <!--列表-->
   <div class="container" style="margin-top: 10px">
     <el-table :data="userList" border style="width: 100%">
-      <el-table-column prop="id" label="ID" width="80" />
+      <el-table-column prop="id" label="ID" width="120" />
       <el-table-column prop="userName" label="用户名" width="120" />
       <el-table-column prop="password" label="密码" width="120" />
-      <el-table-column prop="nickName" label="昵称" width="180" />
-      <el-table-column prop="role" label="分类" width="100" />
+      <el-table-column prop="nickName" label="昵称" width="120" />
+      <el-table-column prop="role" label="分类" width="120" />
       <el-table-column prop="phone" label="电话" width="120" />
       <el-table-column prop="createTime" label="创建时间" width="180" />
       <el-table-column prop="updateTime" label="更新时间" width="180" />
-      <el-table-column prop="avatarUrl" label="头像" width="150" />
-      <el-table-column label="操作" width="180">
+
+      <!-- avatar 列：显示图片或默认占位 -->
+      <el-table-column label="头像" width="80">
         <template #default="{ row }">
-          <el-button size="mini" type="primary" @click="updateUser(row)">
-            <el-icon><EditPen /></el-icon> 编辑
-          </el-button>
-          <el-button size="mini" type="danger" @click="delUser(row)">
-            <el-icon><Delete /></el-icon> 删除
-          </el-button>
+          <div class="avatar-cell">
+            <a v-if="row.avatarUrl" :href="row.avatarUrl" target="_blank" rel="noopener noreferrer">
+              <img
+                :src="row.avatarUrl || DEFAULT_AVATAR"
+                @error="onImageError"
+                alt="avatar"
+                class="avatar-img"
+              />
+            </a>
+            <img v-else :src="DEFAULT_AVATAR" alt="default avatar" class="avatar-img" />
+          </div>
+        </template>
+      </el-table-column>
+
+      <!-- 操作列 -->
+      <el-table-column label="操作" width="120">
+        <template #default="{ row }">
+          <div class="action-buttons">
+            <el-button size="small" type="primary" @click="updateUser(row)">
+              <el-icon><EditPen /></el-icon>
+            </el-button>
+            <el-button size="small" type="danger" @click="delUser(row)">
+              <el-icon><Delete /></el-icon>
+            </el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
   </div>
 
+  <!--新增/编辑对话框-->
   <el-dialog v-model="dialogShow" :title="dialogTitle" width="720px">
     <el-form :model="user" label-width="100px">
-      <el-form-item label="用户名">
-        <el-input v-model="user.userName" autocomplete="off" />
-      </el-form-item>
-      <el-form-item label="密码">
-        <el-input v-model="user.password" autocomplete="off" type="password" />
-      </el-form-item>
-      <el-form-item label="昵称">
-        <el-input v-model="user.nickName" autocomplete="off" />
-      </el-form-item>
-      <el-form-item label="分类">
-        <el-input v-model="user.role" autocomplete="off" />
-      </el-form-item>
-      <el-form-item label="电话">
-        <el-input v-model="user.phone" autocomplete="off" />
-      </el-form-item>
-      <el-form-item label="头像URL">
-        <el-input v-model="user.avatarUrl" autocomplete="off" />
-      </el-form-item>
+      <!--第一行-->
+      <el-row :gutter="20">
+        <el-col :span="12">
+          <el-form-item label="用户名">
+            <el-input v-model="user.userName" placeholder="请输入用户名" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="密码">
+            <el-input v-model="user.password" placeholder="请输入密码" type="password" />
+          </el-form-item>
+        </el-col>
+      </el-row>
+
+      <!--第二行-->
+      <el-row :gutter="20">
+        <el-col :span="12">
+          <el-form-item label="昵称">
+            <el-input v-model="user.nickName" placeholder="请输入昵称" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="分类">
+            <el-select v-model="user.role" placeholder="请选择分类">
+              <el-option :label="'0 - 管理员'" :value="0" />
+              <el-option :label="'1 - 员工'" :value="1" />
+              <el-option :label="'2 - 用户'" :value="2" />
+            </el-select>
+            <div class="hint">提示：0 为管理员，1 为员工，2 为用户</div>
+          </el-form-item>
+        </el-col>
+      </el-row>
+
+      <!--第三行-->
+      <el-row :gutter="20"></el-row>
+      <el-col :span="12">
+        <el-form-item label="电话">
+          <el-input v-model="user.phone" placeholder="请输入电话" />
+        </el-form-item>
+      </el-col>
+
+      <!--上传头像-->
+      <el-row :gutter="20">
+        <el-col :span="12">
+          <el-form-item label="头像">
+            <el-upload
+              class="image-uploader"
+              action="/api/admin/user/avatar"
+              name="image"
+              :show-file-list="false"
+              :on-success="uploadSuccess"
+              :on-error="uploadError"
+              :before-upload="beforeUpload"
+              :headers="{ Accept: 'application/json' }"
+              accept="image/*"
+            >
+              <el-button size="small" type="primary">点击上传头像</el-button>
+            </el-upload>
+
+            <div style="margin-top: 6px">
+              <div v-if="user.avatarUrl">
+                <a :href="user.avatarUrl" target="_blank">{{ user.avatarUrl }}</a>
+                <div style="margin-top: 6px">
+                  <img
+                    :src="user.avatarUrl"
+                    @error="onImageError"
+                    alt="avatar preview"
+                    class="avatar-preview"
+                  />
+                </div>
+              </div>
+              <div v-else>尚未上传</div>
+            </div>
+          </el-form-item>
+        </el-col>
+      </el-row>
     </el-form>
 
     <template #footer>
@@ -210,8 +335,13 @@ const cancelEdit = cancel
       @current-change="handleCurrentChange"
     />
   </div>
-</template>
 
+  <div class="space-y-6 p-8 dark:bg-black">
+    <FileUpload class="rounded-lg border border-dashed border-neutral-200 dark:border-neutral-800">
+      <FileUploadGrid />
+    </FileUpload>
+  </div>
+</template>
 <style scoped>
 .container {
   margin: 12px 0;
@@ -221,5 +351,37 @@ const cancelEdit = cancel
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+}
+
+/* 操作按钮区域 */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+}
+/* avatar 列单元格样式 */
+.avatar-img {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  display: inline-block;
+}
+
+/* 编辑对话框内的预览 */
+.avatar-preview {
+  width: 80px;
+  height: 80px;
+  border-radius: 6px;
+  object-fit: cover;
+  margin-top: 6px;
+}
+
+/* dialog 中分类提示样式 */
+.hint {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 6px;
 }
 </style>

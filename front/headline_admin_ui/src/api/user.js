@@ -1,5 +1,5 @@
 export async function queryPageApi(userName = '', role = '', phone = '', page = 1, size = 10) {
-  const res = await fetch('/api/admin/user/search', {
+  const res = await fetch('/api/admin/user/list', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userName, role, phone, page, size }),
@@ -9,7 +9,7 @@ export async function queryPageApi(userName = '', role = '', phone = '', page = 
 
 export async function deleteUserApi(userOrId) {
   const payload = typeof userOrId === 'object' ? userOrId : { id: userOrId }
-  const res = await fetch('/api/admin/user/del', {
+  const res = await fetch('/api/admin/user/delete', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
