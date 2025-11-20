@@ -12,15 +12,6 @@ import lombok.NoArgsConstructor;
 @Builder
 public class newsPort {
     private long id;
-
-    public long getId() {
-        return id;
-    }
-
-    public void setId(long id) {
-        this.id = id;
-    }
-
     private long authorId;
     private int categoryId;
     private String title;
@@ -32,6 +23,14 @@ public class newsPort {
     private int commentCount;
     private String createTime;
     private String updateTime;
+
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
 
     public long getAuthorId() {
         return authorId;

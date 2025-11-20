@@ -17,60 +17,102 @@ import java.util.Map;
 @RequestMapping("/admin/newsport")
 public class NewsPortController {
 
-//    @Autowired
-//    private NewPortService newPortService;
-//
-//    private static final Logger log = LoggerFactory.getLogger(NewsPortController.class);
-//
-//    // 增
-//    @PostMapping("/add")
-//    public Map<String, Object> addNewsPort(@RequestBody newsPort newsPortDTO) {
-//        Map<String, Object> res = new HashMap<>();
-//        try {
-//            newPortService.addNewsPort();
-//            res.put("code", 1);
-//            res.put("message", "新闻添加成功");
-//        } catch (Exception e) {
-//            res.put("code", 0);
-//            res.put("message", "新闻添加失败");
-//        }
-//        return res;
-//    }
-//    // 查
-//    @PostMapping("/get")
-//    public Map<String, Object> getNewsPort(@RequestBody Map<String, Object> params) {
-//        Map<String, Object> res = new HashMap<>();
-//        try {
-//            newsPort newsPort = newPortService.getNewsPortById();
-//            res.put("code", 1);
-//            res.put("data", newsPort);
-//        } catch (Exception e) {
-//            res.put("code", 0);
-//            res.put("message", "新闻获取失败");
-//        }
-//        return res;
-//    }
-//
-//    // 改
-//    @PostMapping("/update")
-//    public Map<String, Object> updateNewsPort(@RequestBody newsPort newsPortDTO) {
-//        Map<String, Object> res = new HashMap<>();
-//        if(newsPortDTO.getId() == Null) {
-//            res.put("code", 0);
-//            res.put("message", "新闻 id 不能为空");
-//            return res;
-//        }
-//
-//        try {
-//            newPortService.updateNewsPort();
-//            res.put("code", 1);
-//            res.put("message", "新闻更新成功");
-//        } catch (Exception e) {
-//            res.put("code", 0);
-//            res.put("message", "新闻更新失败");
-//        }
-//        return res;
-//    }
+    @Autowired
+    private NewPortService newPortService;
 
+    private static final Logger log = LoggerFactory.getLogger(NewsPortController.class);
 
+    // 增
+    @PostMapping("/add")
+    public Map<String, Object> addNewsPort(@RequestBody newsPort newsPortDTO) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            // 使用服务层的 saveNewsPort 完成新增
+            newPortService.saveNewsPort(newsPortDTO);
+            res.put("code", 1);
+            res.put("message", "新闻添加成功");
+        } catch (Exception e) {
+            res.put("code", 0);
+            res.put("message", "新闻添加失败");
+        }
+        return res;
+    }
+
+    // 查
+    @PostMapping("/get")
+    public Map<String, Object> getNewsPort(@RequestBody Map<String, Object> params) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            Object idObj = params.get("id");
+            if (idObj == null) {
+                res.put("code", 0);
+                res.put("message", "缺少新闻 id");
+                return res;
+            }
+            Long id = Long.valueOf(idObj.toString());
+
+            newsPort newsPort = newPortService.getNewsPortById(id);
+            if (newsPort == null) {
+                res.put("code", 0);
+                res.put("message", "新闻不存在");
+            } else {
+                res.put("code", 1);
+                res.put("data", newsPort);
+            }
+        } catch (Exception e) {
+            res.put("code", 0);
+            res.put("message", "新闻获取失败");
+        }
+        return res;
+    }
+
+    // 改
+    @PostMapping("/update")
+    public Map<String, Object> updateNewsPort(@RequestBody newsPort newsPortDTO) {
+        Map<String, Object> res = new HashMap<>();
+        if (newsPortDTO.getId() == 0 || newsPortDTO.getId() == 0) {
+            res.put("code", 0);
+            res.put("message", "新闻 id 不能为空");
+            return res;
+        }
+
+        try {
+            // 仍然复用 saveNewsPort，带 id 即更新
+            newPortService.saveNewsPort(newsPortDTO);
+            res.put("code", 1);
+            res.put("message", "新闻更新成功");
+        } catch (Exception e) {
+            res.put("code", 0);
+            res.put("message", "新闻更新失败");
+        }
+        return res;
+    }
+
+    // 删
+    @PostMapping("/delete")
+    public Map<String, Object> deleteNewsPort(@RequestBody Map<String, Object> params) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            Object idObj = params.get("id");
+            if (idObj == null) {
+                res.put("code", 0);
+                res.put("message", "缺少新闻 id");
+                return res;
+            }
+            Long id = Long.valueOf(idObj.toString());
+
+            boolean success = newPortService.deleteNewsPortById(id);
+            if (success) {
+                res.put("code", 1);
+                res.put("message", "新闻删除成功");
+            } else {
+                res.put("code", 0);
+                res.put("message", "新闻删除失败，记录可能不存在");
+            }
+        } catch (Exception e) {
+            res.put("code", 0);
+            res.put("message", "新闻删除异常");
+        }
+        return res;
+    }
 }
