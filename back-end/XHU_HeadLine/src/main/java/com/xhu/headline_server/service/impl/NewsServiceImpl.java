@@ -186,10 +186,35 @@ public class NewsServiceImpl implements NewsService {
 
         List<Comment> comments = commentMapper.listCommentsByPostId(postId, offset, size);
 
+        List<Map<String, Object>> dataList = new java.util.ArrayList<>();
+        for (Comment c : comments) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", c.getId());
+            item.put("postId", c.getPostId());
+            item.put("userId", c.getUserId());
+            item.put("content", c.getContent());
+            item.put("parentId", c.getParentId());
+            item.put("createTime", c.getCreateTime());
+            item.put("likeCount", c.getLikeCount());
+
+            // 获取用户头像与用户名（若用户不存在使用默认）
+            User u = null;
+            try {
+                u = userMapper.getUserById(c.getUserId());
+            } catch (Exception ignored) {}
+            String avatar = (u == null || u.getAvatarUrl() == null) ? DEFAULT_AVATAR : u.getAvatarUrl();
+            String userName = (u == null || u.getUserName() == null) ? DEFAULT_AUTHORID : u.getUserName();
+
+            item.put("avatar_url", avatar);
+            item.put("userName", userName);
+
+            dataList.add(item);
+        }
+
         Map<String, Object> res = new HashMap<>();
         res.put("code", 1);
         res.put("message", "ok");
-        res.put("data", comments);
+        res.put("data", dataList);
         return res;
     }
 
