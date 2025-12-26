@@ -43,5 +43,11 @@
         SET comment_count = GREATEST(COALESCE(comment_count, 0) + #{delta}, 0)
         WHERE id = #{postId}
     </update>
+    <select id="listUserComments" parameterType="long" resultMap="CommentResultMap">
+        SELECT id, post_id, user_id, content, parent_id, like_count, create_time
+        FROM comments
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC
+    </select>
 </mapper>
 

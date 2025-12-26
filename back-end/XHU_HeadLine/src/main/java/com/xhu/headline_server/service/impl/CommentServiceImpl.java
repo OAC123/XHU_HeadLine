@@ -1,4 +1,3 @@
-// Java
 package com.xhu.headline_server.service.impl;
 
 import com.xhu.headline_server.entity.Comment;
@@ -7,6 +6,8 @@ import com.xhu.headline_server.service.CommentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 public class CommentServiceImpl implements CommentService {
@@ -38,5 +39,10 @@ public class CommentServiceImpl implements CommentService {
             return true;
         }
         return false;
+    }
+
+    @Override
+    public List<Comment> listUserComments(Long userId) {
+        return commentMapper.listUserComments(userId);
     }
 }

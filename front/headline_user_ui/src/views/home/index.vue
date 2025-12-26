@@ -2,13 +2,12 @@
 <script setup>
 import Heart from '@/asset/img/Love.svg'
 import Loved from '@/asset/img/lamb-love.svg'
-import { onMounted, ref, nextTick } from 'vue'
+import { onMounted, ref } from 'vue'
 import { Comment, View } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { useAnimationTransitionStore } from '@/stores';
 import request from '@/utils/axios/main.js'
 import { ElMessage } from 'element-plus'
-import { ensureLogin } from '@/utils/axios/auth.js'
 
 defineOptions({
   name: 'HomePage'
@@ -16,15 +15,16 @@ defineOptions({
 
 const router = useRouter()
 // 设置动画的过度方向
-
 const animationTransitionStore = useAnimationTransitionStore()
 const { setTransitionDirection } = animationTransitionStore
 
-
 const articleList = ref([])
+const loading = ref(false) // 增加加载状态
+const bgUrl = ref('') // 背景图片路径
 
 // 获取文章列表数据
 const getArticleList = async () => {
+  loading.value = true
   try {
     const res = await request.get('/user/news', {
       params: { pageNum: 1, pageSize: 20 },
@@ -33,40 +33,50 @@ const getArticleList = async () => {
 
     // 若后端仍返回 code 判定
     const list = res?.data?.list ?? res?.data ?? res?.rows ?? res ?? []
-    articleList.value = (Array.isArray(list) ? list : []).map((item) => {
-      // --- 修复封面图解析逻辑 ---
-      let images = []
-      // 兼容后端可能返回的字段名: coverImages 或 coverImage
-      const rawCover = item.coverImages || item.coverImage || ''
-      
-      if (Array.isArray(rawCover)) {
-        images = rawCover
-      } else if (typeof rawCover === 'string' && rawCover.trim() !== '') {
-        const str = rawCover.trim()
-        if (str.startsWith('[') && str.endsWith(']')) {
-          try {
-            images = JSON.parse(str)
-          } catch (e) {
+    
+    articleList.value = (Array.isArray(list) ? list : [])
+      .map((item) => {
+        // --- 修复封面图解析逻辑 ---
+        let images = []
+        // 兼容后端可能返回的字段名: coverImages 或 coverImage
+        const rawCover = item.coverImages || item.coverImage || ''
+        
+        if (Array.isArray(rawCover)) {
+          images = rawCover
+        } else if (typeof rawCover === 'string' && rawCover.trim() !== '') {
+          const str = rawCover.trim()
+          if (str.startsWith('[') && str.endsWith(']')) {
+            try {
+              images = JSON.parse(str)
+            } catch (e) {
+              images = str.split(',')
+            }
+          } else {
             images = str.split(',')
           }
-        } else {
-          images = str.split(',')
         }
-      }
 
-      return {
-        ...item,
-        coverImages: images.filter(url => url && typeof url === 'string' && url.length > 0),
-        avatarUrl: item.avatar_url ?? item.avatarUrl ?? item.authorAvatar ?? '', // 增加 authorAvatar 兼容
-        authorName: item.authorName ?? item.source ?? '匿名用户',
-      }
-    })
+        return {
+          ...item,
+          coverImages: images.filter(url => url && typeof url === 'string' && url.length > 0),
+          avatarUrl: item.avatar_url ?? item.avatarUrl ?? item.authorAvatar ?? '', // 增加 authorAvatar 兼容
+          authorName: item.authorName ?? item.source ?? '匿名用户',
+          // 确保 status 存在，如果没有则默认为 1 (视情况而定，这里假设后端返回了 status)
+          status: item.status !== undefined ? item.status : 1 
+        }
+      })
+      // --- 核心修改：只显示 status 为 1 的帖子 ---
+      .filter(item => item.status === 1)
+
   } catch (error) {
     if (error?.response?.status === 401) {
       ElMessage.warning('该接口目前要求登录，需后端放开匿名访问')
     } else {
+      console.error(error)
       ElMessage.error('获取文章列表失败')
     }
+  } finally {
+    loading.value = false
   }
 }
 
@@ -84,11 +94,6 @@ const jumpToArticleDetail = (articleId) => {
   })
 }
 
-// 动态计算gap
-const containerRef = ref(null)
-const gapWidth = ref(null)
-const coverImagesDisplayRef = ref([])
-
 // 定义是否点赞 (这里暂时是前端模拟，实际应该调用接口)
 const handleLike = (article) => {
   // 注意：这里修改的是单个文章的点赞状态，而不是全局变量
@@ -103,47 +108,42 @@ const handleLike = (article) => {
 }
 
 onMounted(async () => {
-  await getArticleList() // 页面加载时获取数据
+  // 读取本地存储的背景图片设置
+  const storedBg = localStorage.getItem('backgroundImage')
+  if (storedBg) {
+    bgUrl.value = storedBg
+  }
 
-  // 等待 DOM 更新后再计算样式
-  nextTick(() => {
-    if (containerRef.value && coverImagesDisplayRef.value.length > 0) {
-      gapWidth.value = (containerRef.value.offsetWidth - 20 - 300) / 2
-      coverImagesDisplayRef.value.forEach((singleImageDisplayRef) => {
-        if (singleImageDisplayRef) {
-          singleImageDisplayRef.style.setProperty('--dynamic-gap', gapWidth.value + 'px')
-        }
-      })
-    }
-  })
+  await getArticleList() // 页面加载时获取数据
 })
 </script>
 
 <template>
-
-  <div ref="containerRef" class="allContentContainer">
+  <!-- 动态绑定背景样式 -->
+  <div 
+    class="allContentContainer" 
+    v-loading="loading"
+    :style="bgUrl ? { backgroundImage: `url(${bgUrl})` } : { backgroundColor: '#ffffff' }"
+  >
 
     <!-- 显示空状态 -->
-    <el-empty v-if="articleList.length === 0" description="暂无文章内容"></el-empty>
+    <el-empty v-if="!loading && articleList.length === 0" description="暂无文章内容"></el-empty>
 
     <div class="singleArticle" v-for="article in articleList" :key="article.hid || article.id">
       <!-- 发帖人信息展示 -->
       <div class="userInfoContainer" @click="jumpToArticleDetail(article.hid || article.id)">
         <div class="authorImage">
-          <img style="width: 40px; height: 40px; object-fit: cover; border-radius: 999px;"
-               :src="article.avatarUrl || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'"
-               alt="用户头像">
+          <el-avatar 
+            :size="40" 
+            :src="article.avatarUrl || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'"
+          />
         </div>
         <div class="postTimeAndAuthorName">
           <div class="authorName">
-            <span>
-              {{ article.authorName || '匿名用户' }}
-            </span>
+            {{ article.authorName || '匿名用户' }}
           </div>
           <div class="postTime">
-            <span>
-              {{ article.createTime || article.createdAt }} · 发布了该帖子
-            </span>
+            {{ article.createTime || article.createdAt }} · 发布
           </div>
         </div>
       </div>
@@ -155,19 +155,19 @@ onMounted(async () => {
 
       <!-- 摘要展示 -->
       <div class="summaryContailer" @click="jumpToArticleDetail(article.hid || article.id)">
-        {{ article.content ? article.content.substring(0, 50) + '...' : '' }}
+        <!-- 去除HTML标签，只显示纯文本摘要 -->
+        {{ article.content ? article.content.replace(/<[^>]+>/g, '').substring(0, 80) + (article.content.length > 80 ? '...' : '') : '' }}
       </div>
 
       <!-- 封面展示 (只有当 coverImages 存在且有内容时才渲染) -->
       <div
         v-if="article.coverImages && article.coverImages.length > 0"
-        ref="coverImagesDisplayRef"
         class="coverImageDisplay"
       >
-        <!-- 最后一张图片的话添加一个类，这个类可以让内部元素进行堆叠 -->
+        <!-- 限制最多显示3张，最后一张如果还有更多则显示遮罩 -->
         <div
-          :class="{singleCoverContainer: true, additionalInfoImage: (index === 2 && article.coverImages.length > 3)? true: false}"
-          v-for="(image, index) in (article.coverImages.length > 3? article.coverImages.slice(0, 3) : article.coverImages)"
+          class="singleCoverContainer"
+          v-for="(image, index) in (article.coverImages.length > 3 ? article.coverImages.slice(0, 3) : article.coverImages)"
           :key="image"
         >
           <el-image
@@ -176,11 +176,12 @@ onMounted(async () => {
             fit="cover"
             :preview-src-list="article.coverImages"
             :initial-index="index"
-            :hide-on-click-modal="true"
-
+            hide-on-click-modal
+            loading="lazy"
           />
-          <div class="additionalInfo" v-show="index === 2 && article.coverImages.length > 3? true: false">
-            <span>共{{ article.coverImages.length }}张</span>
+          <!-- 更多图片提示遮罩 -->
+          <div class="more-images-mask" v-if="index === 2 && article.coverImages.length > 3">
+            <span>+{{ article.coverImages.length - 3 }}</span>
           </div>
         </div>
       </div>
@@ -188,19 +189,19 @@ onMounted(async () => {
       <!-- 底部的评论等功能 -->
       <div class="otherComponents">
         <div class="componentsCommonStyle">
-          <el-icon color="rgba(0, 0, 0, 0.3)"><View/></el-icon>
+          <el-icon><View/></el-icon>
           <span>{{ article.pageViews || article.viewCount || 0 }}</span>
         </div>
 
         <div class="likedAndCommentComponent">
           <div class="componentsCommonStyle" @click.stop="handleLike(article)">
-            <img v-if="!article.isLiked" :src="Heart" style="width: 16px; height: 16px;" alt="" >
-            <img v-else :src="Loved" style="width: 16px; height: 16px;" alt="">
+            <img v-if="!article.isLiked" :src="Heart" class="action-icon" alt="like" >
+            <img v-else :src="Loved" class="action-icon" alt="liked">
             <span>{{ article.likes || article.likeCount || 0 }}</span>
           </div>
 
           <div class="componentsCommonStyle">
-            <el-icon color="rgba(0, 0, 0, 0.3)"><Comment/></el-icon>
+            <el-icon><Comment/></el-icon>
             <span>{{ article.commentCount || 0 }}</span>
           </div>
         </div>
@@ -210,102 +211,165 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* 整体容器 */
 .allContentContainer {
-  background-color: rgba(0, 0, 0, 0.2);
+  min-height: 100vh; /* 确保背景铺满屏幕 */
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-sizing: border-box;
+  
+  /* 背景图通用属性 */
   background-size: cover;
   background-position: center;
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  max-height: 100%;
-  overflow-y: scroll;
+  background-attachment: fixed; /* 背景固定，内容滚动 */
+  background-repeat: no-repeat;
 }
-.headlineHeaderSearch {
-  display: flex;
-  flex-direction: row;
-}
+
+/* 单个文章卡片：半透明设计 */
 .singleArticle {
-  padding: 10px 10px 10px 10px;
-  background-color: rgba(255, 255, 255, 0.7);
-  border-radius: 10px;
+  padding: 16px;
+  /* 半透明白色背景 */
+  background-color: rgba(255, 255, 255, 0.85);
+  /* 毛玻璃效果 (现代感) */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 12px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  
+  /* 移除 hover 动画，避免移动端点击粘滞 bug */
+  /* transition: transform 0.2s ease; */
 }
+
+/* 用户信息区域 */
 .userInfoContainer {
   display: flex;
   flex-direction: row;
-  align-content: center;
-  gap: 20px;
+  align-items: center;
+  gap: 12px;
   cursor: pointer;
 }
 
 .postTimeAndAuthorName {
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  gap: 2px;
 }
+
 .authorName {
-  color: rgb(82, 85, 87);
+  color: #303133;
+  font-weight: 600;
+  font-size: 14px;
 }
+
 .postTime {
-  color: rgb(189, 197, 203);
+  color: #909399;
   font-size: 12px;
 }
+
+/* 标题区域 */
 .articleTitleContainer {
-  font-size: 20px;
-  font-weight: 600;
-  font-family:'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+  font-size: 17px; /* 稍微调小一点点适配移动端 */
+  font-weight: bold;
+  color: #303133;
+  line-height: 1.4;
   cursor: pointer;
 }
+
+/* 摘要区域 */
 .summaryContailer {
   cursor: pointer;
-  color: #666;
+  color: #606266;
+  font-size: 14px;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* 最多显示2行 */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
+/* 图片展示区域 */
 .coverImageDisplay {
   display: flex;
   flex-direction: row;
-  /* 使用动态绑定图片间距 */
-  gap: var(--dynamic-gap);
+  gap: 2%; /* 间距使用百分比 */
+  margin-top: 4px;
 }
-/* 最后一张图片并且长度大于3，需要进行说明 */
-.additionalInfoImage {
+
+/* 移动端适配的图片容器 */
+.singleCoverContainer {
   position: relative;
+  width: 32%; /* 约三分之一宽度 */
+  aspect-ratio: 1 / 1; /* 保持正方形 */
+  height: auto; /* 高度由宽度决定 */
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
 }
+
 .previewCoversInHome {
-  width: 100px;
-  height: 100px;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  border-radius: 10px;
 }
-.additionalInfo {
+
+/* 更多图片遮罩 */
+.more-images-mask {
   position: absolute;
-  top: 0px;
-  right: 0px;
-  font-size: 8px;
-  color: white;
-  padding:1px 3px 1px 3px;
-  border-top-right-radius: 10px;
-  background-color: rgba(0, 0, 0, 0.2);
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: bold;
+  pointer-events: none;
 }
+
+/* 底部操作栏 */
 .otherComponents {
   display: flex;
   flex-direction: row;
   justify-content: space-between;
-  margin-top: 5px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05); /* 更淡的分割线 */
 }
+
 .componentsCommonStyle {
-  color: rgba(0, 0, 0, 0.5);
+  color: #909399;
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
+  gap: 6px;
   cursor: pointer;
+  font-size: 13px;
 }
+
+/* 移动端点击反馈 */
+.componentsCommonStyle:active {
+  opacity: 0.7;
+}
+
 .likedAndCommentComponent {
   display: flex;
   flex-direction: row;
-  gap: 15px;
+  gap: 16px;
+}
+.action-icon {
+  width: 16px;
+  height: 16px;
 }
 </style>

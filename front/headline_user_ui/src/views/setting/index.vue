@@ -1,5 +1,9 @@
 <template>
-  <div class="setting-page">
+  <!-- 动态绑定背景样式 -->
+  <div 
+    class="setting-page"
+    :style="bgImage ? { backgroundImage: `url(${bgImage})` } : {}"
+  >
     <!-- 顶部：用户信息 + 头像上传 -->
     <el-card class="user-card" :loading="loadingProfile" shadow="never">
       <div class="user-header">
@@ -125,10 +129,10 @@
       </el-collapse>
     </el-card>
 
-    <!-- 功能开关占位：以后可以在这里统一控制 -->
+    <!-- 功能开关 -->
     <el-card
       class="section-card"
-      header="功能开关"
+      header="个性化设置"
       shadow="never"
     >
       <div class="feature-row">
@@ -154,10 +158,30 @@
         </el-radio-group>
       </div>
 
+      <!-- 自定义背景设置 -->
+      <div class="feature-row bg-setting-row">
+        <div>
+          <div class="feature-title">自定义背景</div>
+          <div class="feature-sub">上传图片作为全站背景</div>
+        </div>
+        <div class="bg-actions">
+           <el-upload
+            class="bg-uploader"
+            :show-file-list="false"
+            :http-request="uploadBackground"
+            accept="image/*"
+          >
+            <el-button size="small" :loading="uploadingBg">上传图片</el-button>
+          </el-upload>
+          <el-button v-if="bgImage" size="small" type="danger" link @click="clearBackground">清除</el-button>
+        </div>
+      </div>
+      <!-- 已移除预览区域 -->
+
       <!-- 原有的 Scroll Island 开关 -->
       <div class="feature-row">
         <div>
-          <div class="feature-title">阅读进度条（Scroll Island）</div>
+          <div class="feature-title">阅读进度条</div>
           <div class="feature-sub">控制文章详情页顶部的滚动进度提示组件</div>
         </div>
         <el-switch v-model="featureToggles.scrollIsland" />
@@ -187,18 +211,6 @@
         </div>
         <el-switch v-model="featureToggles.contentFilter" />
       </div>
-
-      <div class="feature-row">
-        <div>
-          <div class="feature-title">实验性功能</div>
-          <div class="feature-sub">控制是否展示正在测试中的新功能</div>
-        </div>
-        <el-switch v-model="featureToggles.experimental" />
-      </div>
-
-      <div class="feature-tip">
-        以上开关当前仅为占位，后续可以在此页面统一接入并控制对应功能。
-      </div>
     </el-card>
 
     <!-- 退出登录 -->
@@ -222,16 +234,14 @@
 </template>
 
 <script setup lang="js">
-// 1. 核心库导入
+// ...existing code...
+// (script 部分保持不变，逻辑已经包含了 bgImage 的读取和设置)
+// ...existing code...
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { ElMessage, ElMessageBox } from 'element-plus'
-
-// 2. 工具类导入
 import instance from '@/utils/axios/main.js'
-
-// 3. Store 导入 (确保路径正确，不要漏掉)
 import { useAnimationTransitionStore } from '@/stores'
 import { useLoginPromptStore } from '@/stores/loginPrompt' 
 
@@ -241,21 +251,15 @@ defineOptions({
 
 const router = useRouter()
 const loginUserId = ref(null)
-
-// --- 初始化 Stores ---
-// 动画 Store
 const animationStore = useAnimationTransitionStore()
 const { enableAnimation, animationType } = storeToRefs(animationStore)
 const { setEnableAnimation, setAnimationType } = animationStore
-
-// 登录弹窗 Store (这里初始化，如果报错说明导入失败)
 const loginPromptStore = useLoginPromptStore()
-
-// --- 页面状态 ---
 const activeSections = ref([])
 const loadingProfile = ref(false)
 const loadingPassword = ref(false)
-
+const bgImage = ref('')
+const uploadingBg = ref(false)
 const userInfo = ref({
   id: '',
   username: '',
@@ -263,22 +267,18 @@ const userInfo = ref({
   phone: '',
   avatar: '',
 })
-
 const passwordForm = ref({
   oldPassword: '',
   newPassword: '',
   confirmPassword: '',
 })
-
 const featureToggles = ref({
   scrollIsland: true,
   newMessageNotify: true,
   nightMode: false,
   contentFilter: true,
-  experimental: false,
 })
 
-// 监听代码开关变化
 watch(
   () => featureToggles.value.scrollIsland,
   (newValue) => {
@@ -286,20 +286,13 @@ watch(
   }
 )
 
-// --- 方法定义 ---
-
-// 获取用户信息
 const loadUserInfo = async () => {
   try {
-    if (!loginUserId.value) {
-      // 可能是刚退出登录，不报错
-      return
-    }
+    if (!loginUserId.value) return
     loadingProfile.value = true
     const res = await instance.get('/user/info', {
       params: { id: loginUserId.value },
     })
-
     if (res.code === 0) {
       ElMessage.error(res.message || '获取用户信息失败')
       return
@@ -320,7 +313,6 @@ const loadUserInfo = async () => {
   }
 }
 
-// 挂载逻辑
 onMounted(() => {
   try {
     const raw = localStorage.getItem('login_user')
@@ -331,32 +323,32 @@ onMounted(() => {
   } catch (e) {
     console.error('解析本地登录用户信息失败', e)
   }
-
   if (loginUserId.value) {
     loadUserInfo()
   }
-
   const saved = localStorage.getItem('enable_scroll_island')
   if (saved !== null) {
     featureToggles.value.scrollIsland = saved === '1'
   }
+  const storedBg = localStorage.getItem('backgroundImage')
+  if (storedBg) {
+    bgImage.value = storedBg
+  }
 })
 
-// 上传头像
 const uploadAvatar = async (option) => {
   try {
     const formData = new FormData()
-    formData.append('avatarFile', option.file)
-    const res = await instance.post('/user/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-    if (res.code === 1 || res.code === 0) {
-      userInfo.value.avatar = res.data
+    formData.append('image', option.file)
+    const res = await instance.post('/user/upload', formData)
+    const data = res.data || res
+    if (data.code === 1 || data.code === 200) {
+      userInfo.value.avatar = data.imageUrl || data.data
       ElMessage.success('头像上传成功')
-      option.onSuccess(res, option.file)
+      option.onSuccess(data, option.file)
     } else {
-      ElMessage.error(res.message || '头像上传失败')
-      option.onError(new Error(res.message))
+      ElMessage.error(data.message || '头像上传失败')
+      option.onError(new Error(data.message))
     }
   } catch (e) {
     ElMessage.error('头像上传失败')
@@ -364,7 +356,38 @@ const uploadAvatar = async (option) => {
   }
 }
 
-// 保存资料
+const uploadBackground = async (options) => {
+  const { file } = options
+  uploadingBg.value = true
+  try {
+    const formData = new FormData()
+    formData.append('image', file)
+    const res = await instance.post('/user/upload', formData)
+    const data = res.data || res
+    if (data.code === 1 || data.code === 200) {
+        const url = data.imageUrl || data.data
+        if (url) {
+            bgImage.value = url
+            localStorage.setItem('backgroundImage', url)
+            ElMessage.success('背景设置成功')
+        }
+    } else {
+        ElMessage.error(data.message || '上传失败')
+    }
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('上传出错')
+  } finally {
+    uploadingBg.value = false
+  }
+}
+
+const clearBackground = () => {
+    bgImage.value = ''
+    localStorage.removeItem('backgroundImage')
+    ElMessage.success('已恢复默认背景')
+}
+
 const saveProfile = async () => {
   try {
     if (!loginUserId.value) return
@@ -390,7 +413,6 @@ const saveProfile = async () => {
   }
 }
 
-// 修改密码
 const changePassword = async () => {
   if (!passwordForm.value.oldPassword || !passwordForm.value.newPassword) {
     ElMessage.warning('请填写完整')
@@ -408,7 +430,6 @@ const changePassword = async () => {
     })
     if (res.code === 1 || res.code === 0) {
       ElMessage.success('密码修改成功，请重新登录')
-      // 清空表单
       passwordForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
     } else {
       ElMessage.error(res.message || '修改失败')
@@ -420,7 +441,6 @@ const changePassword = async () => {
   }
 }
 
-// 退出登录：调用后端登出接口 + 清空 localStorage + 跳转登录页
 const logout = async () => {
   loginPromptStore.showLogout()
 }
@@ -429,14 +449,27 @@ const logout = async () => {
 <style scoped>
 .setting-page {
   padding: 16px;
-  padding-bottom: 90px; /* 给底部悬浮 Dock 留一点空间 */
+  padding-bottom: 90px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-height: 100vh; /* 确保铺满屏幕 */
+  
+  /* 背景图通用属性 */
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  background-color: #f5f7fa; /* 默认背景色 */
 }
 
-.user-card {
+/* 卡片半透明化，适配背景图 */
+.user-card, .section-card {
   border-radius: 16px;
+  background-color: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
 }
 
 .user-header {
@@ -490,10 +523,6 @@ const logout = async () => {
   color: #9ca3af;
 }
 
-.section-card {
-  border-radius: 16px;
-}
-
 .section-actions {
   margin-top: 8px;
   text-align: right;
@@ -523,10 +552,15 @@ const logout = async () => {
   margin-top: 2px;
 }
 
-.feature-tip {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #9ca3af;
+/* 背景设置相关样式 */
+.bg-setting-row {
+  align-items: flex-start;
+}
+
+.bg-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .danger-card .logout-row {
@@ -539,10 +573,9 @@ const logout = async () => {
   font-size: 16px;
   font-weight: 600;
 }
-
 .logout-sub {
   font-size: 12px;
   color: #9ca3af;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 </style>

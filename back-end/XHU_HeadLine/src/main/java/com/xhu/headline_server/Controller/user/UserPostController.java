@@ -166,14 +166,16 @@ public class UserPostController {
     @PostMapping("/news/post")
     public Map<String, Object> PostPort(@RequestBody Map<String, Object> params) {
         // 从参数中获取属性
+        long authorId = Long.parseLong(params.get("authorId").toString());
         String title = params.get("title").toString();
         String content = params.get("content").toString();
         int categoryId = Integer.parseInt(params.getOrDefault("categoryId", "0").toString());
         String coverImages = params.get("coverImages").toString();
-        int status = Integer.parseInt(params.getOrDefault("status", "1").toString());
+        int status = 0; // 默认需要审核
 
         // 赋值给返回对象
         NewsPortDTO post = new NewsPortDTO();
+        post.setAuthorId(authorId);
         post.setTitle(title);
         post.setContent(content);
         post.setCategoryId(categoryId);

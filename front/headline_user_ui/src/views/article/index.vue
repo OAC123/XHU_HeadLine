@@ -1,536 +1,510 @@
-<!-- 添加文章 -->
 <template>
-  <div class="addArticleContainer">
-    <div class="add10PxPadding">
-      <div class="addArticleComponents">
-        <div class="addTitle commonStyle">
-          <span>标题</span>
-          <el-input placeholder="请输入文章标题" size="large" v-model="articleForm.title" style="width: 60vw"></el-input>
-        </div>
-
-        <div class="addCategory commonStyle">
-          <span>分类</span>
-          <el-select placeholder="请选择文章分类" size="large" v-model="articleForm.categoryId" style="width: 60vw">
-            <el-option
-              v-for="item in categoryOptions"
-              :key="item.id"
-              :label="item.name"
-              :value="item.id"
-            />
-          </el-select>
-        </div>
-
-        <div class="addCover commonStyle">
-          <span>封面</span>
-          <div class="uploadFunction">
-            <el-upload
-              ref="uploadRef"
-              class="avatar-uploader"
-              name="avatarFile"
-              v-model:file-list="fileList"
-              action="/api/user/upload"
-              multiple
-              :on-preview="handlePreview"
-              :on-remove="handleRemove"
-              :on-success="handleSuccess"
-              :show-file-list="false"
-              :limit="10 - articleForm.coverImages.length"
-              :auto-upload="true"
-            >
-
-            <!-- 图片列表展示 -->
-              <div  class="ImgDisplayComponent" ref="inputRef">
-                <el-carousel
-                  autoplay="true"
-                  interval="3000"
-                  class="imgDisplay"
-                  indicator-position="none"
-                  v-if="articleForm.coverImages.length !== 0"
-                >
-                  <el-carousel-item v-for="imageUrl in articleForm.coverImages" :key="imageUrl">
-                    <img class="carouselImg" :src="imageUrl" alt="">
-                  </el-carousel-item>
-                </el-carousel>
-                <!-- <img class="coverImg" v-if="!articleForm.coverUrl" src="https://s2.loli.net/2025/11/18/CILJ3hmbwnvDP7g.png" /> -->
-                <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
-              </div>
-            </el-upload>
-
-            <!-- 上传相关按钮 -->
-            <div class="uploadButton">
-              <el-button type="primary" @click="openSourcePick">选择图片</el-button>
-              <el-button @click="manageImages">管理图片</el-button>
-
-              <!-- 打开对话框 -->
-              <el-dialog
-                v-model="dialogTableVisible"
-                title="管理图片"
-                :width="dialogWidth"
-                close-on-click-modal="false"
-                >
-                <div ref="tableWrapper" class="table-wrapper">
-                  <el-table
-                    class="manageImageTable"
-                    :data="coverImageUploadInfoManageTable"
-                    stripe="true"
-                    highlight-current-row="true"
-                  >
-                    <el-table-column align="center" header-align="center" property="date" label="预览" class="previewColumn" width="100">
-                      <template #default="scope">
-                        <img :src="scope.row.imageUrl" class="previewImage" alt="封面预览" >
-                      </template>
-                    </el-table-column>
-                    <el-table-column align="center" header-align="center" property="uploadTime" label="上传时间" class="uploadTimeColumn" :width="uploadTimeWidth"/>
-                    <el-table-column align="center" header-align="center" label="操作" class="operationsColumn" width="auto">
-                      <template #default="scope">
-                        <div class="buttonContainer">
-                          <div class="singleButton">
-                            <span @click="goUp(scope.$index)" class="goUpButton" >上移</span>
-                          </div>
-                          <div class="singleButton">
-                            <span @click="goDown(scope.$index)" class="goDownButton" >下移</span>
-                          </div>
-                          <div class="singleButton">
-                            <span @click="deleteImage(scope.$index)" class="deleteButton" >删除</span>
-                          </div>
-                        </div>
-                      </template>
-                      <!-- <el-button size="small" text="true" type="primary">上移</el-button>
-                      <el-button size="small" text="true" type="primary">下移</el-button>
-                      <el-button size="small" text="true" type="warning">删除</el-button> -->
-                    </el-table-column>
-                  </el-table>
-
-                  <!-- 确认或者取消 -->
-                  <div class="confirmCoverImagesManagementOrCancel">
-                    <el-button type="primary" @click="confirmManageImages">确认</el-button>
-                    <el-button @click="resetCoverImageTable">重置</el-button>
-                  </div>
-                </div>
-              </el-dialog>
-            </div>
-          </div>
-        </div>
-
-
-        <div class="addContent commonStyle">
-          <span>编辑内容</span>
-          <div class="QuillEntity">
-            <QuillEditor
-              v-model:content="articleForm.content"
-              content-type="html"
-              toolbar="full"
-              theme="snow"
-            />
-          </div>
-        </div>
-
-        <!-- 提交内容或者单纯保存 -->
-        <div class="checkArticleOrSave">
-          <el-button type="primary" size="large" @click="submitArticle">发布帖子</el-button>
-          <el-button size="large" @click="saveArticle">保存帖子</el-button>
-        </div>
-
+  <div class="publish-container">
+    <div class="form-wrapper">
+      <!-- 标题输入 -->
+      <div class="form-item">
+        <input 
+          v-model="articleForm.title" 
+          class="native-input title-input" 
+          placeholder="请输入标题 (2-30字)"
+          maxlength="30"
+        />
+        <span class="word-count">{{ articleForm.title.length }}/30</span>
       </div>
 
+      <!-- 分类选择 (支持下拉 + 自定义输入) -->
+      <div class="form-item">
+        <div class="label">发布到</div>
+        <el-select
+          v-model="articleForm.categoryId"
+          filterable
+          allow-create
+          default-first-option
+          placeholder="请选择或输入分类"
+          class="category-select"
+          size="large"
+        >
+          <el-option
+            v-for="item in categoryOptions"
+            :key="item.id"
+            :label="item.name"
+            :value="item.id"
+          />
+        </el-select>
+      </div>
+
+      <!-- 内容编辑 -->
+      <div class="form-item editor-box">
+        <QuillEditor
+          v-model:content="articleForm.content"
+          content-type="html"
+          :toolbar="toolbarOptions"
+          theme="snow"
+          placeholder="分享你的校园新鲜事..."
+          class="custom-quill"
+        />
+      </div>
+
+      <!-- 图片上传 (九宫格) -->
+      <div class="form-item">
+        <div class="label">配图 ({{ articleForm.coverImages.length }}/9)</div>
+        <div class="image-grid">
+          <!-- 已上传图片 -->
+          <div 
+            v-for="(img, index) in articleForm.coverImages" 
+            :key="index" 
+            class="grid-item"
+          >
+            <el-image 
+              :src="img" 
+              fit="cover" 
+              class="grid-img"
+              :preview-src-list="articleForm.coverImages"
+              :initial-index="index"
+              hide-on-click-modal
+            />
+            <div class="delete-btn" @click.stop="removeImage(index)">
+              <el-icon><Close /></el-icon>
+            </div>
+          </div>
+
+          <!-- 上传按钮 -->
+          <div v-if="articleForm.coverImages.length < 9" class="grid-item upload-wrapper">
+            <el-upload
+              class="custom-uploader"
+              action="#"
+              :show-file-list="false"
+              :http-request="customUpload"
+              :before-upload="beforeUpload"
+              multiple
+            >
+              <div class="upload-box">
+                <el-icon class="upload-icon"><Plus /></el-icon>
+                <span class="upload-text">上传图片</span>
+              </div>
+            </el-upload>
+          </div>
+        </div>
+      </div>
     </div>
 
+    <!-- 底部操作栏 -->
+    <div class="action-bar">
+      <el-button class="btn-save" round @click="saveArticle">存草稿</el-button>
+      <el-button class="btn-publish" type="primary" round @click="submitArticle" :loading="submitting">
+        发布帖子
+      </el-button>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref, onBeforeUnmount } from 'vue'
-import { Plus } from '@element-plus/icons-vue';
+import { onMounted, ref } from 'vue'
+import { Plus, Close } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import instance from '@/utils/axios/main.js'
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 
+const route = useRoute()
 defineOptions({
   name: 'AddArticlePage'
 })
 
 const router = useRouter()
+const submitting = ref(false)
+
+// 简化的工具栏配置
+const toolbarOptions = [
+  [{ 'header': [2, 3, false] }],
+  ['bold', 'italic', 'underline', 'strike'],
+  [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+  ['link', 'clean']
+]
+
 const articleForm = ref({
   title: '',
   coverImages: [],
   content: '',
-  // 分类id，想要设置什么分区就会设置什么categoryId
   categoryId: null,
   status: 1
 })
 
-// 重置ArticleForm当中的内容
-const resetArticleForm = ()=> {
-  articleForm.value.title = ''
-  articleForm.value.coverImages = []
-  articleForm.value.categoryId = null
-  articleForm.value.status = 1
-  articleForm.value.content = ''
-}
+// 存储当前用户ID
+const currentUserId = ref(null)
 
+// 分类选项
 const categoryOptions = ref([
-  {
-    id: 1,
-    name: '百合'
-  },
-  {
-    id: 2,
-    name: '轻百合'
-  },
-  {
-    id: 3,
-    name: '橘系'
-  },
-  {
-    id: 4,
-    name: '后宫百合'
-  },
-  {
-    id: 5,
-    name: 'NTR Yuri'
-  },
+  { id: 1, name: '校园' },
+  { id: 2, name: '生活' },
+  { id: 3, name: '科技' },
+  { id: 4, name: '要闻' },
+  { id: 5, name: '通知公告' },
 ])
 
-// 定义上传封面相关api
-const inputRef = ref(null)
-const uploadRef = ref(null)
+// --- 图片管理逻辑 ---
 
-// 定义对话框
-const dialogTableVisible = ref(false)
-
-// 定义副本元素，也就是在未确认之前管理的表单项目全是单独开辟出来的副本元素
-const coverImageUploadInfoManageTable = ref([])
-
-// 封面信息
-const coverImageUploadInfo = ref([])
-
-
-// 给副本赋值
-const resetCoverImageTable = ()=> {
-  // 先清空
-  coverImageUploadInfoManageTable.value = []
-
-  // 再进行赋值
-  coverImageUploadInfo.value.forEach((item)=> {
-    coverImageUploadInfoManageTable.value.push({
-      imageUrl: item.imageUrl,
-      uploadTime: item.uploadTime
-    })
-  })
-}
-
-// 将副本写入到正式的实体上去
-const tableToTrueImagesInfoEntity = ()=> {
-  // 先清空
-  coverImageUploadInfo.value = []
-
-  // 再进行赋值
-  coverImageUploadInfoManageTable.value.forEach((item)=> {
-    coverImageUploadInfo.value.push({
-      imageUrl: item.imageUrl,
-      uploadTime: item.uploadTime
-    })
-  })
-}
-
-// 定义上移函数
-const goUp = (index)=> {
-  if (index === 0) {
-    // 不能往上移了
-
-  }else {
-    // 往上移一格
-    const inter = coverImageUploadInfoManageTable.value[index]
-
-    // 交换
-    coverImageUploadInfoManageTable.value[index] = coverImageUploadInfoManageTable.value[index - 1]
-    coverImageUploadInfoManageTable.value[index - 1] = inter
-  }
-}
-
-// 定义下移函数
-const goDown = (index)=> {
-  if (index === coverImageUploadInfoManageTable.value.length - 1) {
-    // 不能往下移了
-
-  }else {
-    // 往下移一格
-    const inter = coverImageUploadInfoManageTable.value[index]
-
-    // 交换
-    coverImageUploadInfoManageTable.value[index] = coverImageUploadInfoManageTable.value[index + 1]
-    coverImageUploadInfoManageTable.value[index + 1] = inter
-  }
-}
-
-// 定义删除函数
-const deleteImage = (index)=> {
-  coverImageUploadInfoManageTable.value.splice(index, 1)
-}
-
-// 定义确认函数
-const confirmManageImages = ()=> {
-  // 将表单中修改项写入到实际当中去
-  tableToTrueImagesInfoEntity()
-
-  // 弹出ElMessage
-  ElMessage.success('修改成功')
-
-  // 将articleForm当中的Images也进行更新
-  // 需要先清空
-  articleForm.value.coverImages = []
-  coverImageUploadInfo.value.forEach((item, index)=> {
-    articleForm.value.coverImages[index] = item.imageUrl
-  })
-
-  // 关闭表单
-  dialogTableVisible.value = false
-
-
-}
-
-// 上传成功函数
-const handleSuccess = (res)=> {
-  // 先判断res
-  // 先写0
-  if (res.code === 0) {
-    articleForm.value.coverImages.push(res.data)
-    // articleForm.value.coverImages.push(res.data.url) // 正式用这一行
-
-    // 还要将coverImageUploadInfo也添加
-    coverImageUploadInfo.value.push({
-      imageUrl: res.data,
-      // imageUrl: res.data.url, // 正式用这一行
-      uploadTime: new Date().toLocaleString()
-    })
-
-    ElMessage.success('图片上传成功')
-  } else {
-    ElMessage.error('图片上传失败：' + res.message)
-  }
-}
-
-
-// 定义选择图片按钮
-const openSourcePick = ()=> {
-  inputRef.value.click()
-}
-// 定义管理图片列表函数
-const manageImages = ()=> {
-  // 将表单赋值
-  resetCoverImageTable()
-
-  // 打开对话框
-  dialogTableVisible.value = true
-}
-
-// 发布帖子
-const submitArticle = async ()=> {
+const customUpload = async (options) => {
+  const { file, onSuccess, onError } = options
   try {
-    const res = await instance.post('/user/news/post', articleForm.value)
-    if (res.data.code === 1) {
-      ElMessage.success('发布新帖成功')
-      // 跳转回首页
-      router.push('/testHome/home')
+    const formData = new FormData()
+    // 修复1：后端 @RequestParam("image") 要求参数名为 image
+    formData.append('image', file)
+    
+    const res = await instance.post('/user/upload', formData)
+    const responseData = res.data || res
 
-      // 清空表单内容
-      resetArticleForm()
+    // 修复2：后端返回结构是 { code: 1, imageUrl: "..." }
+    if (responseData.code === 1 || responseData.code === 200) {
+      const url = responseData.imageUrl
+      if (url) {
+        articleForm.value.coverImages.push(url)
+        ElMessage.success('上传成功')
+        onSuccess(responseData)
+      } else {
+        throw new Error('返回的图片地址为空')
+      }
+    } else {
+      throw new Error(responseData.message || '上传失败')
+    }
+  } catch (err) {
+    console.error(err)
+    ElMessage.error(err.message || '网络错误，上传失败')
+    onError(err)
+  }
+}
 
-      // 清空本地存储
+const beforeUpload = (file) => {
+  const isLt5M = file.size / 1024 / 1024 < 5
+  if (!isLt5M) {
+    ElMessage.warning('图片大小不能超过 5MB!')
+  }
+  return isLt5M
+}
+
+const removeImage = (index) => {
+  articleForm.value.coverImages.splice(index, 1)
+}
+
+// --- 核心业务逻辑 ---
+
+const submitArticle = async () => {
+  if (!articleForm.value.title.trim()) return ElMessage.warning('请输入标题')
+  if (!articleForm.value.categoryId) return ElMessage.warning('请选择或输入分类')
+  if (!articleForm.value.content.trim()) return ElMessage.warning('请输入正文内容')
+
+  submitting.value = true
+  
+  // 1. 处理分类 ID
+  let finalCategoryId = articleForm.value.categoryId
+  if (typeof finalCategoryId === 'string') {
+    const match = categoryOptions.value.find(c => c.name === finalCategoryId)
+    if (match) {
+      finalCategoryId = match.id
+    } else {
+      ElMessage.warning('暂不支持创建新分类，请选择列表中的现有分类')
+      submitting.value = false
+      return
+    }
+  }
+
+  // 2. 获取用户 ID
+  if (!currentUserId.value) {
+    try {
+      const raw = localStorage.getItem('login_user')
+      if (raw) {
+        const info = JSON.parse(raw)
+        currentUserId.value = info.userId || info.id || info.uid
+      }
+    } catch (e) {
+      console.error('解析用户信息失败', e)
+    }
+  }
+
+  if (!currentUserId.value) {
+    ElMessage.error('无法获取用户信息，请重新登录')
+    submitting.value = false
+    return
+  }
+
+  // 3. 构造 Payload (显式构造，确保字段准确)
+  const payload = { 
+    authorId: currentUserId.value, 
+    title: articleForm.value.title,
+    content: articleForm.value.content,
+    categoryId: finalCategoryId,
+    // 将数组转为 JSON 字符串
+    coverImages: JSON.stringify(articleForm.value.coverImages),
+    status: 1
+  }
+  
+  try {
+    console.log('正在发送 Payload:', payload)
+    const res = await instance.post('/user/news/post', payload)
+    
+    const resData = res.data || res
+    console.log('后端返回结果:', resData)
+
+    if (resData.id != null || resData.code === 1 || resData.code === 200) {
+      ElMessage.success('发布成功！待审核中')
       localStorage.removeItem('articleDraft')
+      router.push('/layout/home')
     } else {
-      ElMessage.error('发布新帖失败：' + res.data.message)
+      console.warn('发布被判定为失败，返回数据:', resData)
+      ElMessage.error(resData.message || '发布失败，请检查网络或重试')
     }
-  }catch (err) {
-    ElMessage.error('出现未知错误：' + err)
+  } catch (err) {
+    console.error('发布请求异常:', err)
+    ElMessage.error(err.message || '网络异常，请稍后重试')
+  } finally {
+    submitting.value = false
   }
 }
 
-// 保存帖子
-const saveArticle = ()=> {
-  // 保存到本地即可
-  localStorage.setItem('savedCoverImageUploadInfo', JSON.stringify(coverImageUploadInfo.value))
-  localStorage.setItem('savedArticleFormInfo', JSON.stringify(articleForm.value))
-
-  // 弹出保存成功
-  ElMessage.success('保存成功')
-
-  //跳转至首页
-  router.push('/testHome/home')
+const saveArticle = () => {
+  localStorage.setItem('articleDraft', JSON.stringify(articleForm.value))
+  ElMessage.success('已保存到本地草稿')
 }
 
-// 写一个钩子函数，初始化的时候默认从本地取出来
-onMounted(()=> {
-  // 添加一个计算视口大小的方法
-  window.addEventListener('resize', updateViewportWidth)
-
-  // 并且还要从本地取出数据
-  const getImagesInfo = localStorage.getItem('savedCoverImageUploadInfo')
-  if (getImagesInfo !== null && getImagesInfo !== undefined) {
-    // 设置coverImageUploadInfo
-    coverImageUploadInfo.value = JSON.parse(getImagesInfo)
-  }
-
-  const getArticleInfo = localStorage.getItem('savedArticleFormInfo')
-  if (getArticleInfo !== null && getArticleInfo !== undefined) {
-    // 设置articleForm
-    articleForm.value = JSON.parse(getArticleInfo)
-  }
-
-  // 获取类别(正式版的时候需要换掉)
-  getAllCategoriesOptions()
-})
-
-// 获取类别
-const getAllCategoriesOptions = async ()=> {
-  try{
-    const res = await instance.get('/user/news/category/list')
-    if (res.data.code === 0) {
-      // 类别进行赋值
-      categoryOptions.value = res.data.data
+onMounted(async () => {
+    const id = route.query.id
+  if (id) {
+    const res = await instance.get(`/user/news/${id}`)
+    const data = res.data || res
+    articleForm.value.title = data.title || ''
+    articleForm.value.content = data.content || ''
+    articleForm.value.categoryId = data.categoryId || null
+    if (typeof data.coverImages === 'string') {
+      try {
+        articleForm.value.coverImages = JSON.parse(data.coverImages)
+      } catch { articleForm.value.coverImages = [] }
+    } else if (Array.isArray(data.coverImages)) {
+      articleForm.value.coverImages = data.coverImages
     } else {
-      ElMessage.error('发生错误：' + res.data.message)
+      articleForm.value.coverImages = []
     }
-  }catch (err) {
-    ElMessage.error(err)
   }
-}
-
-
-// 动态计算视口大小
-const viewportWidth = ref(window.innerWidth)
-
-const updateViewportWidth = () => {
-  viewportWidth.value = window.innerWidth
-}
-
-// 定义dialogWidth
-const dialogWidth = computed(()=> {
-  return viewportWidth.value > 450? 450 : viewportWidth.value
-})
-
-// 动态计算上传时间的大小
-const uploadTimeWidth = computed(() => {
-  if (dialogWidth.value) {
-    const wrapperWidth = dialogWidth.value
-    return wrapperWidth * 0.33  // 33%
-  }else {
-   return 120
+  
+  // 1. 恢复草稿
+  const draft = localStorage.getItem('articleDraft')
+  if (draft) {
+    try {
+      const parsed = JSON.parse(draft)
+      articleForm.value = { ...articleForm.value, ...parsed }
+    } catch (e) {
+      console.error('草稿解析失败', e)
+    }
   }
-})
-// 在页面渲染之前重新计算视口大小
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', updateViewportWidth)
+
+  // 2. 从 localStorage 获取用户信息
+  try {
+    const raw = localStorage.getItem('login_user')
+    if (raw) {
+      const info = JSON.parse(raw)
+      currentUserId.value = info.userId || info.id || info.uid
+    }
+  } catch (e) {
+    console.error('读取本地用户信息失败', e)
+  }
 })
 </script>
 
 <style scoped>
-.addArticleContainer {
+.publish-container {
+  min-height: 100%;
+  background-color: #fff;
+  padding-bottom: 100px;
+  display: flex;
+  flex-direction: column;
+}
 
-  background-color: whitesmoke;
-  padding:10px;
+.form-wrapper {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+/* 标题输入框 */
+.title-input {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid #eee;
+  padding: 12px 0;
+  font-size: 18px;
+  font-weight: bold;
+  outline: none;
+  background: transparent;
+  border-radius: 0;
+}
+.title-input::placeholder {
+  color: #ccc;
+  font-weight: normal;
+}
+.word-count {
+  position: absolute;
+  right: 0;
+  top: 16px;
+  font-size: 12px;
+  color: #999;
+}
+
+/* 分类选择器样式覆盖 */
+.category-select {
+  width: 100%;
+}
+:deep(.el-input__wrapper) {
+  background-color: #f5f7fa;
+  box-shadow: none !important;
+  border-radius: 8px;
+}
+:deep(.el-input__inner) {
+  font-weight: 500;
+}
+
+/* 编辑器样式 */
+.editor-box {
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+:deep(.ql-toolbar) {
+  border: none !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+  background: #fafafa;
+}
+:deep(.ql-container) {
+  border: none !important;
+  min-height: 200px;
+  font-size: 16px;
+}
+
+/* 九宫格图片墙 */
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+/* 统一 Grid Item 样式 */
+.grid-item {
+  position: relative;
+  width: 100%;
+  padding-bottom: 100%; /* 保持正方形 1:1 */
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.grid-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
   height: 100%;
-  overflow: auto;
+  object-fit: cover;
 }
-.add10PxPadding {
+
+.delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
   display: flex;
+  align-items: center;
   justify-content: center;
-  padding:20px;
-  border-radius: 10px;
-  background-color: white;
-
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  z-index: 10;
 }
-.addArticleComponents {
+
+/* 上传按钮样式修复 */
+.upload-wrapper {
+  /* 确保 wrapper 也是 grid item */
+}
+
+.custom-uploader {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* 穿透 el-upload 内部样式 */
+:deep(.el-upload) {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.upload-box {
+  width: 100%;
+  height: 100%;
+  background-color: #f5f7fa;
+  border: 1px dashed #dcdfe6;
+  border-radius: 8px;
   display: flex;
   flex-direction: column;
-  gap: 30px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.3s;
+  box-sizing: border-box; /* 确保边框在内 */
 }
-.commonStyle {
+.upload-box:hover {
+  border-color: #409eff;
+}
+
+.upload-icon {
+  font-size: 28px;
+  color: #8c939d;
+  margin-bottom: 8px;
+}
+
+.upload-text {
+  font-size: 12px;
+  color: #909399;
+}
+
+/* 底部操作栏 */
+.action-bar {
+  position: fixed;
+  bottom: 80px;
+  left: 0;
+  right: 0;
+  padding: 10px 20px;
   display: flex;
-  flex-direction: column;
-  font-size: 20px;
-  gap: 15px;
-}
-
-/* 临时添加 */
-.avatar-uploader :deep(.el-upload){
-  overflow: visible;
-}
-
-/* 滑动图片的样式 */
-.ImgDisplayComponent {
-  width: 300px;
-  /* box-shadow: 10px 10px 5px 0 rgba(0, 0, 0, 0.5); */
-  border-radius: 10px;
-}
-.imgDisplay {
-  width: 300px;
-  box-shadow: 10px 10px 5px 0 rgba(0, 0, 0, 0.5);
-}
-.carouselImg {
-  width: 300px;
-  height: 300px;
-  object-fit: cover;
-  border-radius: 10px;
-}
-
-.avatar-uploader-icon {
-  height: 300px;
-  width: 300px;
-  border-radius: 20px;
-  border: 2px dashed #efefef;
-}
-.uploadButton {
-  margin-top: 20px;
-  display: flex;
-  flex-direction: row;
-  gap:120px
-}
-
-.previewImage {
-  width: 80px;
-  height: 80px;
-  border-radius: 6px;
-  object-fit: cover;
-}
-.buttonContainer {
-  display: flex;
-  flex-direction: row;
   justify-content: space-between;
+  gap: 15px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  z-index: 99;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
 }
-
-.goUpButton {
-  color: blue;
+.btn-save {
+  flex: 1;
+  background-color: #f5f7fa;
+  color: #606266;
+  border-color: #dcdfe6;
 }
-.goDownButton {
-   color: aqua;
+.btn-publish {
+  flex: 1;
 }
-.deleteButton {
-  color: orange;
-}
-.confirmCoverImagesManagementOrCancel {
-  margin-top: 20px;
-  display: flex;
-  flex-direction: row;
-  gap: 30px;
-  justify-content: flex-end;
-}
-.QuillEntity {
-   min-height: 300px;
-   overflow: auto;
-}
-.addContent {
-  border-bottom: 2px solid rgb(223, 228, 228);
-}
-/* 底部按钮 */
-.checkArticleOrSave {
-  display: flex;
-  flex-direction: row;
-  gap: 50px;
-  justify-content: center;
-  align-items: end;
-  margin-top: 20px;
-  padding-bottom: 20px;
-}
-
 </style>

@@ -1,7 +1,8 @@
 package com.xhu.headline_server.mapper;
 
 import com.xhu.headline_server.entity.Comment;
-import org.apache.ibatis.annotations.*;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -15,8 +16,9 @@ public interface CommentMapper {
 
     int incCommentCount(@Param("postId") Long postId, @Param("delta") int delta);
 
-    // 新增：分页按帖子查询评论
     List<Comment> listCommentsByPostId(@Param("postId") long postId,
                                        @Param("offset") int offset,
                                        @Param("size") int size);
+
+    List<Comment> listUserComments(@Param("userId") Long userId); // 返回列表
 }

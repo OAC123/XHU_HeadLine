@@ -1,4 +1,3 @@
-// java
 package com.xhu.headline_server.Controller.admin;
 
 import com.xhu.headline_server.entity.User;
