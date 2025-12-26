@@ -2,8 +2,8 @@
 <!DOCTYPE mapper
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- XML -->
 <mapper namespace="com.xhu.headline_server.mapper.CommentMapper">
-
     <resultMap id="CommentResultMap" type="com.xhu.headline_server.entity.Comment">
         <id column="id" property="id"/>
         <result column="post_id" property="postId"/>
@@ -16,32 +16,32 @@
         <result column="create_time" property="createTime"/>
     </resultMap>
 
-    <select id="listCommentsByPostId" resultType="com.xhu.headline_server.entity.Comment" parameterType="map">
-        SELECT
-            id,
-            user_id       AS userId,
-            post_id       AS postId,
-            content,
-            parent_id     AS parentId,
-            status,
-            create_time   AS createTime,
-            like_count    AS likeCount
+    <!-- 新增：分页查询 -->
+    <select id="listCommentsByPostId" resultMap="CommentResultMap">
+        SELECT id, post_id, user_id, content, parent_id, like_count, create_time
         FROM comments
         WHERE post_id = #{postId}
         ORDER BY create_time DESC
             LIMIT #{offset}, #{size}
     </select>
 
-    <select id="countCommentsByPostId" resultType="int">
-        SELECT COUNT(*) FROM comments
-        WHERE post_id = #{postId}
-    </select>
-
     <insert id="insertComment" parameterType="com.xhu.headline_server.entity.Comment">
         INSERT INTO comments (post_id, user_id, content, parent_id, create_time)
-        VALUES (#{postId}, #{userId}, #{content}, #{parentId}, NOW())
+        VALUES (#{postId}, #{userId}, #{content}, #{parentId}, NOW());
     </insert>
 
+    <delete id="delById">
+        DELETE FROM comments WHERE id = #{id}
+    </delete>
 
+    <select id="findPostIdByCommentId" parameterType="int" resultType="long">
+        SELECT post_id FROM comments WHERE id = #{id} LIMIT 1
+    </select>
 
+    <update id="incCommentCount">
+        UPDATE news_port
+        SET comment_count = GREATEST(COALESCE(comment_count, 0) + #{delta}, 0)
+        WHERE id = #{postId}
+    </update>
 </mapper>
+

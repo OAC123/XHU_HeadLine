@@ -1,5 +1,8 @@
-package com.xhu.headline_server.service;
+ package com.xhu.headline_server.service;
+
+import com.xhu.headline_server.entity.NewsCategory;
+import java.util.List;
 
 public interface CategoryService {
-    Object listCategories();
+    List<NewsCategory> listCategories();
 }

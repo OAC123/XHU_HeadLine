@@ -22,6 +22,10 @@
           AND deleted = 0
     </select>
 
+    <select id="getByUserName" parameterType="string" resultType="com.xhu.headline_server.entity.User">
+        SELECT * FROM user WHERE user_name = #{userName} LIMIT 1
+    </select>
+
     <!-- 新增用户 -->
     <insert id="addUser" parameterType="com.xhu.headline_server.entity.User" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO `user` (

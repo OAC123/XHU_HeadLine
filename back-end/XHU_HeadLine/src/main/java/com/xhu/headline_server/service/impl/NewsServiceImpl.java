@@ -197,11 +197,8 @@ public class NewsServiceImpl implements NewsService {
             item.put("createTime", c.getCreateTime());
             item.put("likeCount", c.getLikeCount());
 
-            // 获取用户头像与用户名（若用户不存在使用默认）
             User u = null;
-            try {
-                u = userMapper.getUserById(c.getUserId());
-            } catch (Exception ignored) {}
+            try { u = userMapper.getUserById(c.getUserId()); } catch (Exception ignored) {}
             String avatar = (u == null || u.getAvatarUrl() == null) ? DEFAULT_AVATAR : u.getAvatarUrl();
             String userName = (u == null || u.getUserName() == null) ? DEFAULT_AUTHORID : u.getUserName();
 

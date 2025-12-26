@@ -67,8 +67,12 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public void addUser(User user) {
-        if (user == null) {
-            return;
+        if (user == null || user.getUserName() == null || user.getUserName().isBlank()) {
+            throw new IllegalArgumentException("用户名不能为空");
+        }
+        User exist = userMapper.getByUserName(user.getUserName());
+        if (exist != null) {
+            throw new IllegalStateException("用户名已存在");
         }
         userMapper.addUser(user);
     }
@@ -129,4 +133,35 @@ public class UserServiceImpl implements UserService {
         return loginInfo;
     }
 
+    @Override
+    public LoginInfo loginUser(String username, String password) {
+        // 1. 调用 mapper 查询用户
+        User user = userMapper.selectNameAndPassword(username, password);
+        if (user == null) {
+            // 登录失败：账号或密码错误
+            return null;
+        }
+
+
+        // 2. 组装 JWT 负载数据
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", user.getId());
+        claims.put("userName", user.getUserName());
+        claims.put("role", user.getRole());
+
+        // 3. 使用 JwtUtils 生成 JWT 令牌
+        String token = JwtUtils.generateJwt(claims);
+
+        // 4. 封装 LoginInfo 返回
+        LoginInfo loginInfo = new LoginInfo();
+        loginInfo.setUserId(user.getId());
+        loginInfo.setUserName(user.getUserName());
+        loginInfo.setPassword(user.getPassword());
+        loginInfo.setRole(user.getRole());
+        loginInfo.setToken(token);
+        loginInfo.setAvatarUrl(user.getAvatarUrl());
+        System.out.println("生成的 token: " + token);
+
+        return loginInfo;
+    }
 }

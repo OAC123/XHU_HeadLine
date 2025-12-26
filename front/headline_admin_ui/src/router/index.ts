@@ -4,6 +4,8 @@ import LoginView from '@/views/Login/index.vue'
 import UserView from '@/views/user/index.vue'
 import PortView from '@/port/index.vue'
 import PortEditor from '@/port/editor.vue'
+import CommentView from '@/views/comment/index.vue'
+
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -17,7 +19,13 @@ const routes: Array<RouteRecordRaw> = [
     children: [
       {
         path: '',
-        redirect: '/user',
+        redirect: '/dashboard', // 修改：默认重定向到仪表盘
+      },
+      {
+        path: '/dashboard', // 新增：仪表盘路由
+        name: 'Dashboard',
+        // 使用路由懒加载，优化首屏性能
+        component: () => import('@/views/dashboard/index.vue'),
       },
       {
         path: '/user',
@@ -34,6 +42,19 @@ const routes: Array<RouteRecordRaw> = [
         name: 'PortEditor',
         component: PortEditor,
       },
+      // 评论路由
+      {
+        path: '/comments',
+        name: 'Comments',
+        component: CommentView,
+      },
+       // 审核管理路由
+      {
+        path: '/audit',
+        name: 'Audit',
+        component: () => import('@/port/audit.vue'),
+      },
+      
     ],
   },
 ]
@@ -50,7 +71,7 @@ router.beforeEach((to, _from, next) => {
   if (!token && to.path !== '/login') {
     next('/login')
   } else if (token && to.path === '/login') {
-    next('/user')
+    next('/') // 修改：已登录状态访问登录页，跳转到首页（仪表盘）
   } else {
     next()
   }

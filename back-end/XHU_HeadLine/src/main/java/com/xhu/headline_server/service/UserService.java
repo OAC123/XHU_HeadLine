@@ -22,4 +22,6 @@ public interface UserService {
     List<User> getAllUsers();
 
     LoginInfo login(String username, String password);
+
+    LoginInfo loginUser(String username, String password);
 }

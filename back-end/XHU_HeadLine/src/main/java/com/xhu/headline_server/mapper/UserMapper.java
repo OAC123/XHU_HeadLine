@@ -24,6 +24,11 @@ public interface UserMapper {
      */
     int updateUser(User user);
 
+     /***
+      *  按用户名查重
+      */
+     User getByUserName(@Param("userName") String userName);
+
     /**
      * 根据 id 删除用户
      */

@@ -25,7 +25,7 @@ public class UserLoginController {
     @PostMapping("/login")
     public Map<String, Object> login(@RequestBody UserDTO userDTO) {
         // 后端额外返回了头像和用户名信息
-        LoginInfo flag = userService.login(userDTO.getUserName(), userDTO.getPassword());
+        LoginInfo flag = userService.loginUser(userDTO.getUserName(), userDTO.getPassword());
 
         Map<String, Object> res = new HashMap<>();
         if (flag == null) {
@@ -53,18 +53,20 @@ public class UserLoginController {
             res.put("message", "用户名或密码不能为空");
             return res;
         }
-        // 从前端传参中获取参数
         User users = new User();
-        users.setUserName(userDTO.getUserName());
+        users.setUserName(userDTO.getUserName().trim());
         users.setPassword(userDTO.getPassword());
         users.setRole(3);
         users.setPhone(userDTO.getPhone());
-        // 调用服务类方法
+        users.setNickName("默认昵称");
         try {
             userService.addUser(users);
             res.put("code", 1);
             res.put("message", "注册成功");
             res.put("data", users);
+        } catch (IllegalStateException e) {
+            res.put("code", 0);
+            res.put("message", e.getMessage()); // “用户名已存在”
         } catch (Exception e) {
             res.put("code", 0);
             res.put("message", "注册失败: " + e.getMessage());

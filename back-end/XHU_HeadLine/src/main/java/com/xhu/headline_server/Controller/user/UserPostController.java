@@ -1,11 +1,13 @@
 package com.xhu.headline_server.Controller.user;
 
 
+import com.xhu.headline_server.entity.Comment;
 import com.xhu.headline_server.entity.NewsPort;
 import com.xhu.headline_server.entity.NewsPortDTO;
 
 import com.xhu.headline_server.entity.User;
 import com.xhu.headline_server.service.CategoryService;
+import com.xhu.headline_server.service.CommentService;
 import com.xhu.headline_server.service.NewsService;
 import com.xhu.headline_server.service.impl.SensitiveServiceImpl;
 import com.xhu.headline_server.service.impl.UserServiceImpl;
@@ -35,6 +37,8 @@ public class UserPostController {
     private SensitiveServiceImpl sensitiveServiceImpl;
     @Autowired
     private UserServiceImpl userServiceImpl;
+    @Autowired
+    private CommentService commentService;
 
 
     // 查咨询列表
@@ -70,11 +74,10 @@ public class UserPostController {
     }
 
 
-
     // 查咨询详情
     @GetMapping("/news/{id}")
-    public Map<String , Object> getNewsDetail(@PathVariable Long id){
-        Map<String , Object> res = new HashMap<>();
+    public Map<String, Object> getNewsDetail(@PathVariable Long id) {
+        Map<String, Object> res = new HashMap<>();
         // 说白了还是查
         // 注意这里实现类的细节
         res = newsService.getNewsDetail(id);
@@ -83,10 +86,10 @@ public class UserPostController {
 
     // 增加浏览量
     @PostMapping("/news/{id}/view")
-    public Map<String , Object> addViewCount(@PathVariable Long id){
+    public Map<String, Object> addViewCount(@PathVariable Long id) {
         // 用户访问页面自动触发 说到了还是增
         int viewCount = newsService.addViewCount(id);
-        return Map.of("ViewCount" , viewCount);
+        return Map.of("ViewCount", viewCount);
     }
 
     // 点赞
@@ -110,53 +113,46 @@ public class UserPostController {
     // 查看评论
     // params : {page , size}
     @GetMapping("/news/{id}/comments")
-    public Map<String , Object> comments(@PathVariable long id, @RequestParam Map<String ,Object> params){
-        Map<String , Object> res = new HashMap<>();
-        int page = Integer.parseInt(params.getOrDefault("page","1").toString());
-        int size = Integer.parseInt(params.getOrDefault("size","5").toString());
+    public Map<String, Object> comments(@PathVariable long id, @RequestParam Map<String, Object> params) {
+        Map<String, Object> res = new HashMap<>();
+        int page = Integer.parseInt(params.getOrDefault("page", "1").toString());
+        int size = Integer.parseInt(params.getOrDefault("size", "5").toString());
         // 传入对应id和想看的帖子id 调用服务层方法具体实现
-        res = newsService.getCommentList(id,page,size);
+        res = newsService.getCommentList(id, page, size);
         return res;
     }
+    // 发表评论
+
 
     // 评论回复
-    // params : {id , parentId , content}
-    @PostMapping("news/{id}/comments")
+    @PostMapping("/news/{id}/comments")
     public Map<String, Object> addComments(@PathVariable long id, @RequestBody Map<String, Object> body) {
-        // 1. 校验 content
         if (body.get("content") == null) {
             return Map.of("code", 0, "message", "评论内容不能为空");
         }
         String content = body.get("content").toString();
 
-        // 2. 获取 parentId (处理 null 或 "0" 的情况)
         long parentId = 0;
         Object parentObj = body.get("parentId");
-        if (parentObj != null && !parentObj.toString().equals("null")) {
-            try {
-                parentId = Long.parseLong(parentObj.toString());
-            } catch (NumberFormatException e) {
-                parentId = 0;
-            }
+        if (parentObj != null && !"null".equalsIgnoreCase(parentObj.toString())) {
+            try { parentId = Long.parseLong(parentObj.toString()); } catch (NumberFormatException ignored) { parentId = 0; }
         }
 
-        // 3. 获取 userId (这是修复的关键)
         if (body.get("userId") == null) {
             return Map.of("code", 0, "message", "用户ID缺失");
         }
         long userId;
-        try {
-            userId = Long.parseLong(body.get("userId").toString());
-        } catch (NumberFormatException e) {
-            return Map.of("code", 0, "message", "用户ID格式错误");
-        }
+        try { userId = Long.parseLong(body.get("userId").toString()); }
+        catch (NumberFormatException e) { return Map.of("code", 0, "message", "用户ID格式错误"); }
 
-        // 4. 调用 Service
-        // 注意参数顺序必须与 Service 定义一致：postId, userId, content, parentId
         try {
-            return newsService.addComment(id, userId, content, parentId);
-        } catch (IllegalArgumentException e) {
-            return Map.of("code", 0, "message", e.getMessage());
+            Comment comment = new Comment();
+            comment.setPostId(id);
+            comment.setUserId(userId);
+            comment.setContent(content);
+            comment.setParentId(parentId);
+            boolean ok = commentService.addComment(comment);
+            return Map.of("code", ok ? 1 : 0, "message", ok ? "评论成功" : "评论失败");
         } catch (Exception e) {
             e.printStackTrace();
             return Map.of("code", 0, "message", "服务器内部错误");
@@ -168,11 +164,11 @@ public class UserPostController {
      * 用户端发表帖子
      */
     @PostMapping("/news/post")
-    public Map<String , Object> PostPort(@RequestBody Map<String , Object> params){
+    public Map<String, Object> PostPort(@RequestBody Map<String, Object> params) {
         // 从参数中获取属性
         String title = params.get("title").toString();
         String content = params.get("content").toString();
-        int categoryId = Integer.parseInt(params.getOrDefault("categoryId","0").toString());
+        int categoryId = Integer.parseInt(params.getOrDefault("categoryId", "0").toString());
         String coverImages = params.get("coverImages").toString();
         int status = Integer.parseInt(params.getOrDefault("status", "1").toString());
 
@@ -232,7 +228,7 @@ public class UserPostController {
         res.put("username", user.getUserName());
         res.put("phone", user.getPhone());
         res.put("avatar", user.getAvatarUrl());
-        res.put("nickname",user.getNickName());
+        res.put("nickname", user.getNickName());
         return res;
     }
 
@@ -246,7 +242,8 @@ public class UserPostController {
         if (params.get("id") != null) {
             try {
                 id = Long.parseLong(params.get("id").toString());
-            } catch (NumberFormatException ignored) { }
+            } catch (NumberFormatException ignored) {
+            }
         }
 
         User user = (id != null) ? userServiceImpl.getUserById(id) : new User();
@@ -284,23 +281,22 @@ public class UserPostController {
     }
 
 
-
     // 敏感词检查
     // 传入参数为文章正文
     @PostMapping("/news/post/sensitive")
-    public Map<String ,Object>sensitiveCheck(@RequestBody Map<String, Object> body){
+    public Map<String, Object> sensitiveCheck(@RequestBody Map<String, Object> body) {
         String content = body == null ? null : String.valueOf(body.get("content"));
-        if (content == null || content.isBlank()){
-            return Map.of("code",0,"message","正文不存在");
+        if (content == null || content.isBlank()) {
+            return Map.of("code", 0, "message", "正文不存在");
         }
         List<String> words = sensitiveServiceImpl.getAllWords();
         List<String> hitWords = words.stream()
                 .filter(word -> word != null && !word.isBlank() && content.contains(word))
                 .toList();
-        if (!hitWords.isEmpty()){
-            return  Map.of("code",0,"message","检测到敏感词","hits",hitWords);
-        }else{
-            return Map.of("code",1,"message","未检测到敏感词");
+        if (!hitWords.isEmpty()) {
+            return Map.of("code", 0, "message", "检测到敏感词", "hits", hitWords);
+        } else {
+            return Map.of("code", 1, "message", "未检测到敏感词");
         }
     }
 
